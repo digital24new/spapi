@@ -1,0 +1,2915 @@
+truttura del Database per l'Integrazione con Amazon SP-API
+In questa sezione, creeremo la struttura del database basata sulla descrizione fornita. Inizieremo definendo le tabelle e le loro relazioni.
+
+Tabelle del Database
+1. Utenti (users)
+user_id: INT, PRIMARY KEY, AUTO_INCREMENT
+email: VARCHAR(255), UNIQUE
+password: VARCHAR(255) (versione hash della password)
+created_at: DATETIME
+updated_at: DATETIME
+2. Prodotti (products)
+product_id: INT, PRIMARY KEY, AUTO_INCREMENT
+user_id: INT, FOREIGN KEY (riferimento a users.user_id)
+EAN: VARCHAR(255)
+ASIN: VARCHAR(255)
+product_name: VARCHAR(255)
+product_description: TEXT
+product_condition: ENUM('new', 'used')
+created_at: DATETIME
+updated_at: DATETIME
+3. Marketplaces (marketplaces)
+marketplace_id: INT, PRIMARY KEY, AUTO_INCREMENT
+marketplace_name: VARCHAR(255)
+marketplace_code: VARCHAR(255) (ad es. "amazon.it", "amazon.de")
+4. Prezzi (prices)
+price_id: INT, PRIMARY KEY, AUTO_INCREMENT
+product_id: INT, FOREIGN KEY (riferimento a products.product_id)
+marketplace_id: INT, FOREIGN KEY (riferimento a marketplaces.marketplace_id)
+current_price: DECIMAL(10,2)
+amazon_price: DECIMAL(10,2)
+FBA_price: DECIMAL(10,2)
+seller_price: DECIMAL(10,2)
+date_of_query: DATETIME
+5. Credenziali SP-API (sp_api_credentials)
+credential_id: INT, PRIMARY KEY, AUTO_INCREMENT
+user_id: INT, FOREIGN KEY (riferimento a users.user_id)
+access_key: VARCHAR(255)
+secret_key: VARCHAR(255)
+created_at: DATETIME
+updated_at: DATETIME
+Query SQL per la Creazione delle Tabelle
+CREATE TABLE users (
+    user_id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE products (
+    product_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    EAN VARCHAR(255),
+    ASIN VARCHAR(255),
+    product_name VARCHAR(255),
+    product_description TEXT,
+    product_condition ENUM('new', 'used'),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+);
+
+CREATE TABLE marketplaces (
+    marketplace_id INT AUTO_INCREMENT PRIMARY KEY,
+    marketplace_name VARCHAR(255) NOT NULL,
+    marketplace_code VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE prices (
+    price_id INT AUTO_INCREMENT PRIMARY KEY,
+    product_id INT,
+    marketplace_id INT,
+    current_price DECIMAL(10,2),
+    amazon_price DECIMAL(10,2),
+    FBA_price DECIMAL(10,2),
+    seller_price DECIMAL(10,2),
+    date_of_query DATETIME,
+    FOREIGN KEY (product_id) REFERENCES products(product_id),
+    FOREIGN KEY (marketplace_id) REFERENCES marketplaces(marketplace_id)
+);
+
+CREATE TABLE sp_api_credentials (
+    credential_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    access_key VARCHAR(255) NOT NULL,
+    secret_key VARCHAR(255) NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+);
+Funzioni PHP per Interagire con il Database e le SP-API di Amazon
+<?php
+// Connessione al database
+function connectToDatabase() {
+    $host = 'localhost';
+    $db   = 'amazon_sp_api';
+    $user = 'username';
+    $pass = 'password';
+    $charset = 'utf8mb4';
+
+    $dsn = "mysql:host=$host;dbname=$db;charset=$charset";
+    $options = [
+        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::ATTR_EMULATE_PREPARES   => false,
+    ];
+    try {
+        $pdo = new PDO($dsn, $user, $pass, $options);
+        return $pdo;
+    } catch (\PDOException $e) {
+        throw new \PDOException($e->getMessage(), (int)$e->getCode());
+    }
+}
+
+// Funzione per inserire un nuovo prodotto nel database
+function insertProduct($ean, $asin, $name, $description, $condition) {
+    $pdo = connectToDatabase();
+    $stmt = $pdo->prepare('INSERT INTO products (EAN, ASIN, product_name, product_description, product_condition) VALUES (?, ?, ?, ?, ?)');
+    $stmt->execute([$ean, $asin, $name, $description, $condition]);
+}
+
+// Funzione per ottenere i prezzi di un prodotto da Amazon SP-API
+// (Questa è una funzione di esempio, dovrai implementare l'integrazione con le SP-API di Amazon)
+function getPriceFromAmazon($asin) {
+    // Qui dovrai implementare la chiamata alle SP-API di Amazon per ottenere il prezzo del prodotto
+    // e restituire il risultato
+    return 100;  // Prezzo di esempio
+}
+
+// Altre funzioni saranno necessarie per implementare tutte le funzionalità descritte nella specifica.
+?>
+Integrazione con le SP-API di Amazon
+<?php
+require 'vendor/autoload.php';  // Assumendo che tu abbia installato le librerie necessarie tramite Composer
+
+// Funzione per ottenere un token di accesso dalle SP-API di Amazon
+function getAmazonToken($clientId, $clientSecret) {
+    // Qui dovrai implementare la logica per ottenere un token di accesso dalle SP-API di Amazon
+    // Utilizza le librerie client fornite da Amazon o altre librerie disponibili
+    return 'your_access_token';  // Token di esempio
+}
+
+// Funzione per ottenere il prezzo di un prodotto specifico dalle SP-API di Amazon
+function getPriceFromAmazonSPAPI($asin, $accessToken) {
+    // Qui dovrai implementare la logica per interrogare le SP-API di Amazon
+    // e ottenere il prezzo del prodotto specificato dall'ASIN
+    return 100;  // Prezzo di esempio
+}
+
+// Altre funzioni saranno necessarie per implementare tutte le funzionalità descritte nella specifica.
+?>
+Funzioni per la Gestione dei File e la Selezione del Marketplace
+<?php
+// Funzione per caricare un file
+function uploadFile($file) {
+    $target_dir = 'uploads/';
+    $target_file = $target_dir . basename($file['name']);
+    move_uploaded_file($file['tmp_name'], $target_file);
+    return $target_file;
+}
+
+// Funzione per leggere il contenuto di un file CSV e restituire un array
+function readCSV($file_path) {
+    $data = [];
+    if (($handle = fopen($file_path, 'r')) !== FALSE) {
+        while (($row = fgetcsv($handle, 1000, ',')) !== FALSE) {
+            $data[] = $row;
+        }
+        fclose($handle);
+    }
+    return $data;
+}
+
+// Funzione per selezionare il marketplace
+function selectMarketplace($marketplace) {
+    // Qui dovrai implementare la logica per selezionare il marketplace desiderato
+    // e configurare le chiamate alle SP-API di Amazon di conseguenza
+}
+
+// Altre funzioni saranno necessarie per implementare tutte le funzionalità descritte nella specifica.
+?>
+Funzioni per l'Interrogazione dei Prezzi, il Matching dei Prodotti e l'Esportazione dei Dati
+
+<?php
+// Funzione per interrogare i prezzi da Amazon SP-API
+function queryPrices($asin, $accessToken) {
+    // Qui dovrai implementare la logica per interrogare le SP-API di Amazon
+    // e ottenere i prezzi del prodotto specificato dall'ASIN
+    return [
+        'current_price' => 100,  // Prezzo di esempio
+        'amazon_price' => 95,   // Prezzo di esempio
+        'fba_price' => 98,      // Prezzo di esempio
+        'seller_price' => 102   // Prezzo di esempio
+    ];
+}
+
+// Funzione per fare il matching dei prodotti basandosi sull'EAN o sull'ASIN
+function matchProducts($ean_or_asin) {
+    // Qui dovrai implementare la logica per fare il matching dei prodotti
+    // nel tuo database basandosi sull'EAN o sull'ASIN
+    return 'product_id';  // ID del prodotto di esempio
+}
+
+// Funzione per esportare i dati in formato CSV
+function exportDataToCSV($data) {
+    $file_name = 'export.csv';
+    $file = fopen($file_name, 'w');
+    foreach ($data as $row) {
+        fputcsv($file, $row);
+    }
+    fclose($file);
+    return $file_name;
+}
+
+// Altre funzioni saranno necessarie per implementare tutte le funzionalità descritte nella specifica.
+?>
+Funzioni per la Gestione delle Credenziali SP-API, Notifiche e Dashboard
+<?php
+// Funzione per salvare le credenziali SP-API
+function saveAmazonCredentials($credentials) {
+    // Qui dovrai implementare la logica per salvare le credenziali SP-API nel tuo database
+    // Assicurati di salvare le credenziali in modo sicuro, ad esempio utilizzando una cifratura
+}
+
+// Funzione per ottenere le credenziali SP-API
+function getAmazonCredentials() {
+    // Qui dovrai implementare la logica per ottenere le credenziali SP-API dal tuo database
+    return [
+        'access_key' => 'your_access_key',
+        'secret_key' => 'your_secret_key'
+    ];
+}
+
+// Funzione per inviare notifiche agli utenti
+function sendNotification($user_id, $message) {
+    // Qui dovrai implementare la logica per inviare notifiche agli utenti
+    // Puoi utilizzare servizi di terze parti come Twilio, SendGrid, ecc. per inviare SMS o email
+}
+
+// Funzione per ottenere metriche per la dashboard
+function getDashboardMetrics() {
+    // Qui dovrai implementare la logica per ottenere metriche utili per la dashboard
+    return [
+        'total_products' => 1000,  // Numero totale di prodotti nel database
+        'price_trends' => [],      // Tendenze dei prezzi per i prodotti più monitorati
+        'top_products' => []       // Prodotti più monitorati
+    ];
+}
+
+// Altre funzioni saranno necessarie per implementare tutte le funzionalità descritte nella specifica.
+?>
+Funzioni per l'Autenticazione degli Utenti, Caricamento dei File e Selezione del Marketplace
+<?php
+// Funzione per autenticare gli utenti
+function authenticateUser($email, $password) {
+    // Qui dovrai implementare la logica per autenticare gli utenti basandoti su email e password
+    // Assicurati di utilizzare una cifratura sicura per le password
+    return true;  // Ritorna true se l'autenticazione ha successo, altrimenti false
+}
+
+// Funzione per caricare file
+function uploadFile($file) {
+    // Qui dovrai implementare la logica per caricare file nei formati: .csv, .xslx, .xsl, o .ods
+    return 'file_path';  // Ritorna il percorso del file caricato
+}
+
+// Funzione per selezionare il marketplace
+function selectMarketplace($marketplace) {
+    // Qui dovrai implementare la logica per selezionare il marketplace desiderato
+    return true;  // Ritorna true se la selezione ha successo, altrimenti false
+}
+
+// Altre funzioni saranno necessarie per implementare tutte le funzionalità descritte nella specifica.
+?>
+Funzioni per il Caricamento di Nuovi Prodotti e l'Interrogazione delle SP-API di Amazon
+<?php
+// Funzione per caricare nuovi prodotti nel database
+function addNewProduct($productDetails) {
+    // Qui dovrai implementare la logica per aggiungere nuovi prodotti al database
+    return true;  // Ritorna true se l'aggiunta ha successo, altrimenti false
+}
+
+// Funzione per interrogare le SP-API di Amazon
+function queryAmazonSPAPI($productASIN, $marketplace) {
+    // Qui dovrai implementare la logica per interrogare le SP-API di Amazon
+    // Utilizza le credenziali SP-API salvate nel database per autenticarti
+    $credentials = getAmazonCredentials();
+
+    // Esegui la chiamata API e ottieni le informazioni desiderate
+    // Ad esempio, prezzo attuale del prodotto, prezzo di Amazon, prezzo dei competitor, ecc.
+    $apiResponse = [];
+
+    return $apiResponse;
+}
+
+// Altre funzioni saranno necessarie per implementare tutte le funzionalità descritte nella specifica.
+?>
+Funzioni per il Salvataggio dei Dati, Ricerca e Interrogazione nel Backoffice
+<?php
+// Funzione per salvare i dati ottenuti dalle SP-API nel database
+function saveDataToDatabase($apiResponse) {
+    // Qui dovrai implementare la logica per salvare i dati ottenuti dalle SP-API nel database MySQL
+    return true;  // Ritorna true se il salvataggio ha successo, altrimenti false
+}
+
+// Funzione per interrogare i prezzi salvati nel database
+function queryPrices($searchCriteria) {
+    // Qui dovrai implementare la logica per interrogare i prezzi salvati nel database
+    // Ad esempio, ricerca per nome, EAN, ASIN o all'interno della descrizione del prodotto
+    $results = [];
+
+    return $results;
+}
+
+// Funzione per lanciare l'interrogazione dei prezzi presenti su Amazon
+function launchPriceQuery($criteria) {
+    // Qui dovrai implementare la logica per lanciare l'interrogazione dei prezzi presenti su Amazon
+    $apiResponse = queryAmazonSPAPI($criteria['productASIN'], $criteria['marketplace']);
+
+    return $apiResponse;
+}
+
+// Altre funzioni saranno necessarie per implementare tutte le funzionalità descritte nella specifica.
+?>
+Funzioni per il Matching dei Prodotti, Gestione delle Credenziali SP-API, Notifiche e Dashboard
+<?php
+// Funzione per il matching dei prodotti
+function matchProducts($uploadedFile) {
+    // Qui dovrai implementare la logica per fare il matching dei prodotti basandosi sull'EAN o sull'ASIN
+    $matchingResults = [];
+
+    return $matchingResults;
+}
+
+// Funzione per gestire le credenziali SP-API
+function manageAmazonCredentials($credentials) {
+    // Qui dovrai implementare la logica per inserire e gestire le credenziali SP-API nel database
+    return true;  // Ritorna true se la gestione delle credenziali ha successo, altrimenti false
+}
+
+// Funzione per le notifiche
+function sendNotifications($criteria) {
+    // Qui dovrai implementare la logica per inviare notifiche agli utenti
+    return true;  // Ritorna true se l'invio delle notifiche ha successo, altrimenti false
+}
+
+// Funzione per la dashboard
+function getDashboardMetrics() {
+    // Qui dovrai implementare la logica per ottenere le metriche per la dashboard
+    $metrics = [];
+
+    return $metrics;
+}
+
+// Altre funzioni saranno necessarie per implementare tutte le funzionalità descritte nella specifica.
+?>
+Funzioni per l'Esportazione dei Dati, Sezione "Verifica" e Altre Funzionalità
+<?php
+// Funzione per esportare i dati del database
+function exportData($format, $criteria) {
+    // Qui dovrai implementare la logica per esportare i dati del database nei formati specificati
+    $exportedData = [];
+
+    return $exportedData;
+}
+
+// Funzione per la sezione "Verifica"
+function verifyProductInconsistencies() {
+    // Qui dovrai implementare la logica per identificare e correggere le incongruenze nei prodotti
+    $inconsistencies = [];
+
+    return $inconsistencies;
+}
+
+// Altre funzioni saranno necessarie per implementare tutte le funzionalità descritte nella specifica.
+?>
+Funzioni per la Gestione delle Credenziali SP-API, Notifiche e Dashboard (Dettagliato)
+<?php
+// Funzione dettagliata per gestire le credenziali SP-API
+function detailedManageAmazonCredentials($action, $credentials) {
+    if ($action == 'add') {
+        // Aggiungi le credenziali al database
+    } elseif ($action == 'update') {
+        // Aggiorna le credenziali nel database
+    } elseif ($action == 'delete') {
+        // Elimina le credenziali dal database
+    }
+    return true;  // Ritorna true se l'azione ha successo, altrimenti false
+}
+
+// Funzione dettagliata per le notifiche
+function detailedSendNotifications($type, $message) {
+    if ($type == 'email') {
+        // Invia una notifica via email
+    } elseif ($type == 'sms') {
+        // Invia una notifica via SMS
+    }
+    return true;  // Ritorna true se l'invio delle notifiche ha successo, altrimenti false
+}
+
+// Funzione dettagliata per la dashboard
+function detailedGetDashboardMetrics($metricType) {
+    $metrics = [];
+    if ($metricType == 'priceTrends') {
+        // Ottieni le tendenze dei prezzi
+    } elseif ($metricType == 'mostMonitoredProducts') {
+        // Ottieni i prodotti più monitorati
+    }
+    return $metrics;
+}
+
+// Altre funzioni saranno necessarie per implementare tutte le funzionalità descritte nella specifica.
+?>
+Funzioni per la Gestione delle Credenziali SP-API, Notifiche e Dashboard (Ulteriori Dettagli)
+<?php
+// Funzione ulteriormente dettagliata per gestire le credenziali SP-API
+function detailedManageAmazonCredentialsV2($action, $credentials) {
+    $db = new PDO('mysql:host=localhost;dbname=amazon_sp_api', 'username', 'password');
+    if ($action == 'add') {
+        $stmt = $db->prepare('INSERT INTO credentials (access_key, secret_key) VALUES (?, ?)');
+        $stmt->execute([$credentials['access_key'], $credentials['secret_key']]);
+    } elseif ($action == 'update') {
+        $stmt = $db->prepare('UPDATE credentials SET access_key = ?, secret_key = ? WHERE id = ?');
+        $stmt->execute([$credentials['access_key'], $credentials['secret_key'], $credentials['id']]);
+    } elseif ($action == 'delete') {
+        $stmt = $db->prepare('DELETE FROM credentials WHERE id = ?');
+        $stmt->execute([$credentials['id']]);
+    }
+    return true;
+}
+
+// Funzione ulteriormente dettagliata per le notifiche
+function detailedSendNotificationsV2($type, $message, $recipient) {
+    if ($type == 'email') {
+        mail($recipient, 'Notifica da Amazon SP-API Software', $message);
+    } elseif ($type == 'sms') {
+        // Qui dovrai implementare la logica per inviare SMS, ad esempio utilizzando un servizio come Twilio
+    }
+    return true;
+}
+
+// Funzione ulteriormente dettagliata per la dashboard
+function detailedGetDashboardMetricsV2($metricType) {
+    $db = new PDO('mysql:host=localhost;dbname=amazon_sp_api', 'username', 'password');
+    $metrics = [];
+    if ($metricType == 'priceTrends') {
+        $stmt = $db->prepare('SELECT product_name, price, date FROM product_prices ORDER BY date DESC LIMIT 10');
+        $stmt->execute();
+        $metrics = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } elseif ($metricType == 'mostMonitoredProducts') {
+        $stmt = $db->prepare('SELECT product_name, COUNT(*) as count FROM product_prices GROUP BY product_name ORDER BY count DESC LIMIT 10');
+        $stmt->execute();
+        $metrics = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    return $metrics;
+}
+
+// Altre funzioni saranno necessarie per implementare tutte le funzionalità descritte nella specifica.
+?>
+Funzioni per l'Interrogazione delle SP-API di Amazon, Salvataggio dei Dati, Ricerca e Interrogazione nel Backoffice
+<?php
+// Funzione per interrogare le SP-API di Amazon
+function queryAmazonSPAPI($marketplace, $productEANorASIN) {
+    // Qui dovrai implementare la logica per interrogare le SP-API di Amazon utilizzando le credenziali salvate nel database
+    // e ottenere le informazioni richieste come il prezzo attuale del prodotto, il prezzo di Amazon, il prezzo dei competitor, ecc.
+    // Questa funzione restituirà un array con tutte le informazioni ottenute.
+    $productInfo = [];
+    return $productInfo;
+}
+
+// Funzione per salvare i dati ottenuti dalle SP-API nel database
+function saveProductData($productData) {
+    $db = new PDO('mysql:host=localhost;dbname=amazon_sp_api', 'username', 'password');
+    $stmt = $db->prepare('INSERT INTO product_prices (product_name, price, date, marketplace) VALUES (?, ?, ?, ?)');
+    $stmt->execute([$productData['product_name'], $productData['price'], $productData['date'], $productData['marketplace']]);
+    return true;
+}
+
+// Funzione per interrogare i prezzi salvati nel database
+function querySavedPrices($productNameOrEANorASIN) {
+    $db = new PDO('mysql:host=localhost;dbname=amazon_sp_api', 'username', 'password');
+    $stmt = $db->prepare('SELECT * FROM product_prices WHERE product_name = ? OR ean = ? OR asin = ?');
+    $stmt->execute([$productNameOrEANorASIN, $productNameOrEANorASIN, $productNameOrEANorASIN]);
+    $prices = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    return $prices;
+}
+
+// Altre funzioni saranno necessarie per implementare tutte le funzionalità descritte nella specifica.
+?>
+Funzioni per il Caricamento dei File, Selezione del Marketplace e Caricamento Nuovi Prodotti
+<?php
+// Funzione per caricare file
+function uploadFile($file) {
+    // Qui dovrai implementare la logica per caricare il file e salvarlo in una directory specifica sul server
+    // Questa funzione restituirà il percorso del file caricato o un messaggio di errore in caso di problemi
+    $filePath = '';
+    return $filePath;
+}
+
+// Funzione per selezionare il marketplace
+function selectMarketplace($marketplace) {
+    // Qui dovrai implementare la logica per selezionare il marketplace desiderato
+    // Questa funzione restituirà un messaggio di conferma o un messaggio di errore in caso di problemi
+    $message = '';
+    return $message;
+}
+
+// Funzione per caricare nuovi prodotti nel database
+function addNewProduct($productData) {
+    $db = new PDO('mysql:host=localhost;dbname=amazon_sp_api', 'username', 'password');
+    $stmt = $db->prepare('INSERT INTO products (product_name, ean, asin, description) VALUES (?, ?, ?, ?)');
+    $stmt->execute([$productData['product_name'], $productData['ean'], $productData['asin'], $productData['description']]);
+    return true;
+}
+
+// Altre funzioni saranno necessarie per implementare tutte le funzionalità descritte nella specifica.
+?>
+Funzioni per il Matching dei Prodotti, Esportazione dei Dati e Gestione delle Credenziali SP-API
+<?php
+// Funzione per il matching dei prodotti
+function matchProducts($uploadedProductData) {
+    $db = new PDO('mysql:host=localhost;dbname=amazon_sp_api', 'username', 'password');
+    // Qui dovrai implementare la logica per fare il matching dei prodotti basandosi sull'EAN o sull'ASIN
+    // e gestire eventuali incongruenze
+    return true;
+}
+
+// Funzione per esportare i dati
+function exportData($format, $filters) {
+    // Qui dovrai implementare la logica per esportare i dati del database nel formato desiderato (.csv, .xslx, .xsl, o .ods)
+    $exportedData = '';
+    return $exportedData;
+}
+
+// Funzione per gestire le credenziali SP-API
+function manageSPAPICredentials($credentials) {
+    $db = new PDO('mysql:host=localhost;dbname=amazon_sp_api', 'username', 'password');
+    // Qui dovrai implementare la logica per inserire e gestire le credenziali per l'utilizzo delle SP-API di Amazon nel database
+    return true;
+}
+
+// Altre funzioni saranno necessarie per implementare tutte le funzionalità descritte nella specifica.
+?>
+Funzioni per le Notifiche e la Dashboard
+<?php
+// Funzione per inviare notifiche agli utenti
+function sendNotification($userId, $message) {
+    // Qui dovrai implementare la logica per inviare notifiche agli utenti
+    // Questo potrebbe includere l'invio di email, notifiche push, ecc.
+    return true;
+}
+
+// Funzione per ottenere dati per la dashboard
+function getDashboardData($userId) {
+    $db = new PDO('mysql:host=localhost;dbname=amazon_sp_api', 'username', 'password');
+    // Qui dovrai implementare la logica per ottenere dati dalla dashboard
+    // Questo potrebbe includere tendenze dei prezzi, prodotti più monitorati, ecc.
+    $dashboardData = array();
+    return $dashboardData;
+}
+
+// Altre funzioni saranno necessarie per implementare tutte le funzionalità descritte nella specifica.
+?>
+Funzioni per l'Autenticazione
+<?php
+// Funzione per registrare un nuovo utente
+function registerUser($email, $password) {
+    $db = new PDO('mysql:host=localhost;dbname=amazon_sp_api', 'username', 'password');
+    $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+    $stmt = $db->prepare('INSERT INTO users (email, password) VALUES (?, ?)');
+    $stmt->execute([$email, $hashedPassword]);
+    return $db->lastInsertId();
+}
+
+// Funzione per autenticare un utente
+function authenticateUser($email, $password) {
+    $db = new PDO('mysql:host=localhost;dbname=amazon_sp_api', 'username', 'password');
+    $stmt = $db->prepare('SELECT password FROM users WHERE email = ?');
+    $stmt->execute([$email]);
+    $hashedPassword = $stmt->fetchColumn();
+    if (password_verify($password, $hashedPassword)) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+// Altre funzioni saranno necessarie per gestire tutte le funzionalità di autenticazione, come il recupero della password, la modifica della password, ecc.
+?>
+Funzione per la Selezione del Marketplace
+<?php
+// Funzione per ottenere la lista dei marketplace supportati
+function getSupportedMarketplaces() {
+    // Questa lista potrebbe essere recuperata da un database o da un file di configurazione
+    return [
+        'IT' => 'Italia (amazon.it)',
+        'FR' => 'Francia (amazon.fr)',
+        'DE' => 'Germania (amazon.de)',
+        // ... altri marketplace ...
+    ];
+}
+
+// Funzione per mostrare un menù di selezione del marketplace
+function displayMarketplaceSelection() {
+    $marketplaces = getSupportedMarketplaces();
+    echo '<select name="marketplace">';
+    foreach ($marketplaces as $code => $name) {
+        echo "<option value='$code'>$name</option>";
+    }
+    echo '</select>';
+}
+
+// Questa funzione può essere chiamata nella pagina di configurazione o dove si desidera permettere all'utente di selezionare il marketplace
+?>
+Funzioni per l'Interrogazione delle SP-API di Amazon
+<?php
+// Funzione per ottenere le informazioni del prodotto dalle SP-API di Amazon
+function getProductInfoFromAmazon($asin, $marketplace) {
+    // Questa funzione richiede l'integrazione con le SP-API di Amazon
+    // Qui è solo un esempio di come potrebbe essere strutturata
+
+    // URL di base per le SP-API (potrebbe variare in base alla documentazione delle SP-API)
+    $baseUrl = 'https://spapi.amazon.com';
+
+    // Endpoint per ottenere le informazioni del prodotto (da verificare nella documentazione delle SP-API)
+    $endpoint = "/products/$asin";
+
+    // Costruire l'URL completo
+    $url = $baseUrl . $endpoint;
+
+    // Qui dovresti includere la logica per autenticarti con le SP-API, come l'uso di token o chiavi API
+
+    // Esempio di chiamata con cURL
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    $response = curl_exec($ch);
+    curl_close($ch);
+
+    // Convertire la risposta in un array associativo
+    $productInfo = json_decode($response, true);
+
+    return $productInfo;
+}
+
+// Altre funzioni saranno necessarie per gestire le diverse richieste alle SP-API, come ottenere i prezzi, le recensioni, ecc.
+?>
+Funzione per Interrogare le SP-API di Amazon per il Prezzo
+<?php
+// Funzione per ottenere il prezzo di un prodotto dalle SP-API di Amazon tramite ASIN
+function getProductPriceByASIN($asin, $marketplace) {
+    // Questa funzione richiede l'integrazione con le SP-API di Amazon
+    // Qui è solo un esempio di come potrebbe essere strutturata
+
+    // URL di base per le SP-API (potrebbe variare in base alla documentazione delle SP-API)
+    $baseUrl = 'https://spapi.amazon.com';
+
+    // Endpoint per ottenere il prezzo del prodotto (da verificare nella documentazione delle SP-API)
+    $endpoint = "/products/pricing/$asin";
+
+    // Costruire l'URL completo
+    $url = $baseUrl . $endpoint;
+
+    // Qui dovresti includere la logica per autenticarti con le SP-API, come l'uso di token o chiavi API
+
+    // Esempio di chiamata con cURL
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    $response = curl_exec($ch);
+    curl_close($ch);
+
+    // Convertire la risposta in un array associativo
+    $productPriceInfo = json_decode($response, true);
+
+    return $productPriceInfo;
+}
+
+// Nota: La richiesta tramite EAN potrebbe richiedere una funzione separata o una modifica a questa funzione
+// per convertire l'EAN in ASIN prima di effettuare la chiamata alle SP-API.
+?>
+Autenticazione e Gestione delle Chiamate alle SP-API di Amazon
+<?php
+// Funzioni per l'autenticazione e la gestione delle chiamate alle SP-API di Amazon
+
+// Funzione per ottenere un token di accesso dalle SP-API
+function getAmazonAccessToken() {
+    // URL per ottenere il token di accesso (da verificare nella documentazione delle SP-API)
+    $tokenUrl = 'https://api.amazon.com/auth/o2/token';
+
+    // Dati per la richiesta del token
+    $postData = array(
+        'grant_type' => 'client_credentials',
+        'client_id' => 'YOUR_CLIENT_ID',  // Da sostituire con il tuo client ID
+        'client_secret' => 'YOUR_CLIENT_SECRET',  // Da sostituire con il tuo client secret
+        'scope' => 'spapi::scope'  // Da sostituire con lo scope appropriato
+    );
+
+    // Esempio di chiamata con cURL
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $tokenUrl);
+    curl_setopt($ch, CURLOPT_POST, 1);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    $response = curl_exec($ch);
+    curl_close($ch);
+
+    // Convertire la risposta in un array associativo
+    $tokenInfo = json_decode($response, true);
+
+    return $tokenInfo['access_token'];
+}
+
+// Funzione per effettuare una chiamata alle SP-API con autenticazione
+function callAmazonSPAPI($endpoint) {
+    $baseUrl = 'https://spapi.amazon.com';
+    $url = $baseUrl . $endpoint;
+
+    // Ottenere il token di accesso
+    $accessToken = getAmazonAccessToken();
+
+    // Esempio di chiamata con cURL con autenticazione
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+        'Authorization: Bearer ' . $accessToken
+    ));
+    $response = curl_exec($ch);
+    curl_close($ch);
+
+    return json_decode($response, true);
+}
+?>
+Autenticazione e Gestione delle Chiamate alle SP-API di Amazon
+<?php
+// Funzione per ottenere un token di accesso dalle SP-API di Amazon
+function getAmazonAccessToken($clientId, $clientSecret) {
+    // URL per ottenere il token di accesso
+    $tokenUrl = 'https://api.amazon.com/auth/o2/token';
+
+    // Parametri per la richiesta
+    $params = [
+        'grant_type'    => 'client_credentials',
+        'client_id'     => $clientId,
+        'client_secret' => $clientSecret,
+        'scope'         => 'spapi_oauth2_scope' // Questo potrebbe variare in base alle specifiche delle SP-API
+    ];
+
+    // Esempio di chiamata con cURL
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $tokenUrl);
+    curl_setopt($ch, CURLOPT_POST, 1);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($params));
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    $response = curl_exec($ch);
+    curl_close($ch);
+
+    // Convertire la risposta in un array associativo
+    $tokenInfo = json_decode($response, true);
+
+    return $tokenInfo['access_token'];
+}
+
+// Funzione migliorata per ottenere il prezzo di un prodotto tramite ASIN
+function getProductPriceByASINWithAuth($asin, $marketplace, $clientId, $clientSecret) {
+    // Ottenere il token di accesso
+    $accessToken = getAmazonAccessToken($clientId, $clientSecret);
+
+    // URL di base per le SP-API
+    $baseUrl = 'https://spapi.amazon.com';
+
+    // Endpoint per ottenere il prezzo del prodotto
+    $endpoint = "/products/pricing/$asin";
+
+    // Costruire l'URL completo
+    $url = $baseUrl . $endpoint;
+
+    // Esempio di chiamata con cURL
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Authorization: Bearer ' . $accessToken
+    ]);
+    $response = curl_exec($ch);
+    curl_close($ch);
+
+    // Convertire la risposta in un array associativo
+    $productPriceInfo = json_decode($response, true);
+
+    return $productPriceInfo;
+}
+?>
+// Costanti per la gestione delle rate limit
+define('MAX_REQUESTS_PER_MINUTE', 10);  // Questo valore è solo un esempio e potrebbe variare in base alle specifiche di Amazon
+define('REQUEST_RETRY_DELAY', 5);       // Ritardo in secondi prima di ritentare una richiesta
+
+// Funzione estesa per ottenere il prezzo di un prodotto tramite ASIN con gestione delle rate limit e ritentativi
+function getProductPriceByASINWithRateLimit($asin, $marketplace, $accessToken) {
+    $attempts = 0;
+    while ($attempts < 3) {  // Tentiamo la richiesta al massimo 3 volte
+        $response = getProductDetailsByASIN($asin, $marketplace, $accessToken);
+        if (isset($response['errors'])) {
+            handleAmazonAPIErrors($response);
+            sleep(REQUEST_RETRY_DELAY);  // Aspettiamo prima di ritentare
+            $attempts++;
+        } else {
+            return $response;
+        }
+    }
+    throw new Exception('Errore SP-API: Numero massimo di tentativi raggiunto.');
+}
+
+// Funzione estesa per gestire errori durante l'interrogazione delle SP-API
+function handleAmazonAPIErrors($response) {
+    if (isset($response['errors'])) {
+        // Log dell'errore e altre azioni necessarie
+        error_log('Errore SP-API: ' . $response['errors'][0]['message']);
+        // Potremmo anche voler inviare una notifica o un'email in caso di errori
+    }
+}
+
+// Funzione per gestire le rate limit delle SP-API
+function handleRateLimit() {
+    static $requestCount = 0;
+    $requestCount++;
+    if ($requestCount > MAX_REQUESTS_PER_MINUTE) {
+        sleep(60);  // Aspettiamo 1 minuto prima di fare un'altra richiesta
+        $requestCount = 0;
+    }
+}
+-- SQL Code to create the tables
+
+-- Users Table
+CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Products Table
+CREATE TABLE products (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    EAN VARCHAR(255),
+    ASIN VARCHAR(255) UNIQUE,
+    product_name VARCHAR(255),
+    product_description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Product Prices Table
+CREATE TABLE product_prices (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    product_id INT,
+    price DECIMAL(10,2),
+    condition ENUM('new', 'used'),
+    marketplace_id INT,
+    date DATE,
+    FOREIGN KEY (product_id) REFERENCES products(id),
+    FOREIGN KEY (marketplace_id) REFERENCES marketplaces(id)
+);
+
+-- Marketplaces Table
+CREATE TABLE marketplaces (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255),
+    code VARCHAR(10) UNIQUE
+);
+
+// PHP functions to interact with the tables
+
+$host = 'your_host';
+$db   = 'your_db_name';
+$user = 'your_db_user';
+$pass = 'your_db_password';
+$charset = 'utf8mb4';
+
+$dsn = "mysql:host=$host;dbname=$db;charset=$charset";
+$options = [
+    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+    PDO::ATTR_EMULATE_PREPARES   => false,
+];
+
+try {
+    $pdo = new PDO($dsn, $user, $pass, $options);
+} catch (\PDOException $e) {
+    throw new \PDOException($e->getMessage(), (int)$e->getCode());
+}
+
+// Function to add a new product
+function addProduct($EAN, $ASIN, $product_name, $product_description) {
+    global $pdo;
+    $stmt = $pdo->prepare("INSERT INTO products (EAN, ASIN, product_name, product_description) VALUES (?, ?, ?, ?)");
+    $stmt->execute([$EAN, $ASIN, $product_name, $product_description]);
+}
+
+// Function to get all products
+function getAllProducts() {
+    global $pdo;
+    $stmt = $pdo->query("SELECT * FROM products");
+    return $stmt->fetchAll();
+}
+
+// Function to get a product by ASIN
+function getProductByASIN($ASIN) {
+    global $pdo;
+    $stmt = $pdo->prepare("SELECT * FROM products WHERE ASIN = ?");
+    $stmt->execute([$ASIN]);
+    return $stmt->fetch();
+}
+
+// Function to update a product's description
+function updateProductDescription($ASIN, $newDescription) {
+    global $pdo;
+    $stmt = $pdo->prepare("UPDATE products SET product_description = ? WHERE ASIN = ?");
+    $stmt->execute([$newDescription, $ASIN]);
+}
+
+// Function to delete a product by ASIN
+function deleteProductByASIN($ASIN) {
+    global $pdo;
+    $stmt = $pdo->prepare("DELETE FROM products WHERE ASIN = ?");
+    $stmt->execute([$ASIN]);
+}
+
+// Additional functions can be added as needed
+// Connessione al database
+$mysqli = new mysqli('host', 'username', 'password', 'database');
+
+if ($mysqli->connect_error) {
+    die('Errore di connessione: ' . $mysqli->connect_error);
+}
+
+// Preparazione della query SQL
+$stmt = $mysqli->prepare('INSERT INTO products (ean, asin, product_name, product_price) VALUES (?, ?, ?, ?)');
+
+while (($row = fgetcsv($file)) !== false) {
+    $ean = $row[array_search('Codice EAN', $headers)];
+    $asin = $row[array_search('Codice ASIN', $headers)];
+    $productName = $row[array_search('Nome del prodotto', $headers)];
+    $productPrice = $row[array_search('Prezzo del prodotto', $headers)];
+
+    // Bind dei parametri
+    $stmt->bind_param('ssss', $ean, $asin, $productName, $productPrice);
+
+    // Esecuzione della query
+    if (!$stmt->execute()) {
+        echo 'Errore: ' . $stmt->error;
+    }
+}
+
+$stmt->close();
+$mysqli->close();
+
+echo 'Dati importati con successo!';
+// Connessione al database
+$mysqli = new mysqli('host', 'username', 'password', 'database');
+if ($mysqli->connect_error) {
+    die('Errore di connessione: ' . $mysqli->connect_error);
+}
+// Query per selezionare tutti i prodotti dal database
+$query = 'SELECT ean, asin, product_name, product_price FROM products';
+$result = $mysqli->query($query);
+if ($result->num_rows > 0) {
+    echo '<table border="1">';
+    echo '<tr><th>EAN</th><th>ASIN</th><th>Nome del prodotto</th><th>Prezzo del prodotto</th></tr>';
+    while ($row = $result->fetch_assoc()) {
+        echo '<tr><td>' . $row['ean'] . '</td><td>' . $row['asin'] . '</td><td>' . $row['product_name'] . '</td><td>' . $row['product_price'] . '</td></tr>';
+    }
+    echo '</table>';
+} else {
+    echo 'Nessun prodotto trovato nel database.';
+}
+$mysqli->close();
+// Connessione al database
+$mysqli = new mysqli('host', 'username', 'password', 'database');
+if ($mysqli->connect_error) {
+    die('Errore di connessione: ' . $mysqli->connect_error);
+}
+// Query preparata per selezionare tutti i prodotti dal database
+$stmt = $mysqli->prepare('SELECT ean, asin, product_name, product_price FROM products');
+if (!$stmt) {
+    die('Errore nella preparazione della query: ' . $mysqli->error);
+}
+if (!$stmt->execute()) {
+    die('Errore nell'esecuzione della query: ' . $stmt->error);
+}
+$result = $stmt->get_result();
+if ($result->num_rows > 0) {
+    echo '<table border="1">';
+    echo '<tr><th>EAN</th><th>ASIN</th><th>Nome del prodotto</th><th>Prezzo del prodotto</th></tr>';
+    while ($row = $result->fetch_assoc()) {
+        echo '<tr><td>' . $row['ean'] . '</td><td>' . $row['asin'] . '</td><td>' . $row['product_name'] . '</td><td>' . $row['product_price'] . '</td></tr>';
+    }
+    echo '</table>';
+} else {
+    echo 'Nessun prodotto trovato nel database.';
+}
+$stmt->close();
+$mysqli->close();
+// Sanitizzazione dei dati
+function sanitizeInput($data) {
+    $data = trim($data);
+    $data = stripslashes($data);
+    $data = htmlspecialchars($data);
+    return $data;
+}
+
+// Limitare i privilegi del database: Assicurarsi di assegnare solo i privilegi necessari all'utente del database.
+// Ad esempio, se l'applicazione non ha bisogno di eliminare dati, l'account non dovrebbe avere il privilegio DELETE.
+
+// Utilizzare HTTPS: Assicurarsi che il server su cui è ospitata l'applicazione utilizzi HTTPS.
+// Questo può essere fatto attraverso il provider di hosting o utilizzando certificati come quelli forniti da Let's Encrypt.
+
+// Gestione degli errori
+set_error_handler('customErrorHandler');
+function customErrorHandler($errno, $errstr, $errfile, $errline) {
+    error_log("Error [$errno] on line $errline in file $errfile: $errstr");
+    echo 'Si è verificato un errore. Riprova più tardi.';
+    exit();
+}
+
+// Limitare il numero di tentativi di accesso
+$maxAttempts = 5;
+if ($_SESSION['loginAttempts'] > $maxAttempts) {
+    echo 'Hai superato il numero massimo di tentativi di accesso. Riprova più tardi.';
+    exit();
+}
+<?php
+// Funzione per filtrare i risultati in base a criteri specifici
+function filterResults($conn, $filterType, $filterValue) {
+    $results = [];
+    $stmt = null;
+
+    // Preparazione delle query SQL per prevenire attacchi di iniezione SQL
+    switch($filterType) {
+        case 'productName':
+            $stmt = $conn->prepare('SELECT * FROM products WHERE product_name LIKE ?');
+            $stmt->bind_param('s', $filterValue);
+            break;
+        case 'asin':
+            $stmt = $conn->prepare('SELECT * FROM products WHERE asin = ?');
+            $stmt->bind_param('s', $filterValue);
+            break;
+        case 'ean':
+            $stmt = $conn->prepare('SELECT * FROM products WHERE ean = ?');
+            $stmt->bind_param('s', $filterValue);
+            break;
+        default:
+            return $results;
+    }
+
+    if ($stmt->execute()) {
+        $result = $stmt->get_result();
+        while ($row = $result->fetch_assoc()) {
+            $results[] = $row;
+        }
+    }
+    $stmt->close();
+    return $results;
+}
+
+// Esempio di utilizzo
+// $conn: connessione al database
+// $productsByName = filterResults($conn, 'productName', 'NomeProdotto');
+// $productsByASIN = filterResults($conn, 'asin', 'ASINspecifico');
+// $productsByEAN = filterResults($conn, 'ean', 'EANspecifico');
+?>
+<?php
+// Funzione per modificare una voce esistente
+function updateProduct($conn, $productId, $newData) {
+    $stmt = $conn->prepare('UPDATE products SET product_name=?, asin=?, ean=?, description=? WHERE id=?');
+    $stmt->bind_param('ssssi', $newData['product_name'], $newData['asin'], $newData['ean'], $newData['description'], $productId);
+    $stmt->execute();
+    $stmt->close();
+}
+
+// Funzione per eliminare una voce esistente
+function deleteProduct($conn, $productId) {
+    $stmt = $conn->prepare('DELETE FROM products WHERE id=?');
+    $stmt->bind_param('i', $productId);
+    $stmt->execute();
+    $stmt->close();
+}
+
+// Funzione per ottenere prodotti con paginazione
+function getProductsPaginated($conn, $page, $itemsPerPage) {
+    $offset = ($page - 1) * $itemsPerPage;
+    $stmt = $conn->prepare('SELECT * FROM products LIMIT ? OFFSET ?');
+    $stmt->bind_param('ii', $itemsPerPage, $offset);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $products = [];
+    while ($row = $result->fetch_assoc()) {
+        $products[] = $row;
+    }
+    $stmt->close();
+    return $products;
+}
+
+// Esempio di utilizzo
+// $conn: connessione al database
+// updateProduct($conn, 1, ['product_name' => 'NuovoNome', 'asin' => 'NuovoASIN', 'ean' => 'NuovoEAN', 'description' => 'NuovaDescrizione']);
+// deleteProduct($conn, 1);
+// $productsPage1 = getProductsPaginated($conn, 1, 10);  // Ottiene i primi 10 prodotti
+// $productsPage2 = getProductsPaginated($conn, 2, 10);  // Ottiene i prodotti dal 11 al 20
+?>
+# Implementazione della logica di autenticazione e sessione
+
+# Inizializzazione della sessione
+session_start();
+
+function loginUser($email, $password) {
+    global $conn;  # Utilizziamo la connessione al database definita in precedenza
+
+    # Prepariamo la query per prevenire attacchi di iniezione SQL
+    $stmt = $conn->prepare('SELECT id, password FROM users WHERE email = ?');
+    $stmt->bind_param('s', $email);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $user = $result->fetch_assoc();
+
+    # Verifica della password
+    if ($user && password_verify($password, $user['password'])) {
+        $_SESSION['user_id'] = $user['id'];
+        return true;
+    } else {
+        return false;
+    }
+}
+
+function logoutUser() {
+    session_unset();
+    session_destroy();
+}
+
+function isUserLoggedIn() {
+    return isset($_SESSION['user_id']);
+}
+
+# Creazione di funzioni per interagire con il database
+
+function insertProduct($asin, $ean, $productName, $productDescription) {
+    global $conn;
+    $stmt = $conn->prepare('INSERT INTO products (asin, ean, name, description) VALUES (?, ?, ?, ?)');
+    $stmt->bind_param('ssss', $asin, $ean, $productName, $productDescription);
+    return $stmt->execute();
+}
+
+function updateProduct($id, $asin, $ean, $productName, $productDescription) {
+    global $conn;
+    $stmt = $conn->prepare('UPDATE products SET asin = ?, ean = ?, name = ?, description = ? WHERE id = ?');
+    $stmt->bind_param('ssssi', $asin, $ean, $productName, $productDescription, $id);
+    return $stmt->execute();
+}
+
+function getProductById($id) {
+    global $conn;
+    $stmt = $conn->prepare('SELECT * FROM products WHERE id = ?');
+    $stmt->bind_param('i', $id);
+    $stmt->execute();
+    return $stmt->get_result()->fetch_assoc();
+}
+
+# Implementazione delle chiamate alle SP-API di Amazon verrà fatta in seguito, dopo aver ottenuto l'accesso alle API e compreso meglio le specifiche.
+<?php
+// Supponendo che tu abbia già configurato le tue credenziali AWS e le impostazioni delle SP-API
+// Utilizzeremo la libreria client PHP fornita da Amazon per le chiamate alle SP-API
+
+require 'vendor/autoload.php';
+
+use Aws\Signature\SignatureV4;
+use GuzzleHttp\Psr7\Request;
+
+// Funzione per ottenere il prezzo di un prodotto tramite ASIN
+function getPriceByASIN($asin) {
+    $region = 'eu-west-1';  // Ad esempio, per il marketplace europeo
+    $service = 'execute-api';
+    $endpoint = 'https://sellingpartnerapi-eu.amazon.com';
+    $path = '/products/pricing/v0/items/' . $asin . '/offers';
+    $payload = '';
+
+    $request = new Request('GET', $endpoint . $path);
+    $signer = new SignatureV4($service, $region);
+    $signedRequest = $signer->signRequest($request, $credentials);
+
+    $client = new \GuzzleHttp\Client();
+    $response = $client->send($signedRequest);
+
+    return json_decode($response->getBody(), true);
+}
+
+// Puoi chiamare questa funzione passando l'ASIN del prodotto per ottenere il prezzo
+// $priceDetails = getPriceByASIN('B07H2V4YLH');  // Ad esempio, per un ASIN specifico
+?>
+<?php
+// Includere le librerie e le configurazioni necessarie
+require 'vendor/autoload.php';
+require 'config.php';
+
+use GuzzleHttp\Client;
+
+// Funzione per ottenere il prezzo di un prodotto tramite ASIN
+function getPriceByASIN($asin) {
+    $client = new Client();
+    $endpoint = 'https://sellingpartnerapi-eu.amazon.com/products/pricing/v0/items/' . $asin;
+
+    try {
+        $response = $client->request('GET', $endpoint, [
+            'headers' => [
+                'x-amz-access-token' => 'YOUR_ACCESS_TOKEN',
+                'User-Agent' => 'YOUR_APP_NAME'
+            ]
+        ]);
+
+        $body = $response->getBody();
+        $result = json_decode($body, true);
+
+        return $result;
+    } catch (Exception $e) {
+        // Gestione degli errori
+        echo 'Errore durante la chiamata alle SP-API: ',  $e->getMessage(), "\n";
+        return null;
+    }
+}
+
+// Esempio di utilizzo
+// $priceDetails = getPriceByASIN('B07H2V4YLH');
+// print_r($priceDetails);
+?>
+// Creazione della tabella api_credentials nel database
+$sql = "CREATE TABLE api_credentials (
+    id INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    access_token VARCHAR(255) NOT NULL,
+    app_name VARCHAR(255) NOT NULL,
+    secret_key VARCHAR(255) NOT NULL,
+    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+)");
+$conn->exec($sql);
+
+// Funzione per ottenere le credenziali dal database
+function getAmazonCredentials() {
+    global $conn;
+    $stmt = $conn->prepare("SELECT * FROM api_credentials WHERE id = 1");
+    $stmt->execute();
+    return $stmt->fetch();
+}
+
+// Funzione per aggiornare le credenziali nel database
+function updateAmazonCredentials($access_token, $app_name, $secret_key) {
+    global $conn;
+    $stmt = $conn->prepare("UPDATE api_credentials SET access_token = :access_token, app_name = :app_name, secret_key = :secret_key WHERE id = 1");
+    $stmt->bindParam(':access_token', $access_token);
+    $stmt->bindParam(':app_name', $app_name);
+    $stmt->bindParam(':secret_key', $secret_key);
+    $stmt->execute();
+}
+
+// Nota: La crittografia delle credenziali e l'interfaccia di gestione nel backoffice saranno implementate nei passi successivi.
+// Funzione per crittografare le credenziali
+function encryptCredentials($data, $key) {
+    $iv = openssl_random_pseudo_bytes(openssl_cipher_iv_length('aes-256-cbc'));
+    $encrypted = openssl_encrypt($data, 'aes-256-cbc', $key, 0, $iv);
+    return base64_encode($encrypted . '::' . $iv);
+}
+
+// Funzione per decrittografare le credenziali
+function decryptCredentials($data, $key) {
+    list($encrypted_data, $iv) = explode('::', base64_decode($data), 2);
+    return openssl_decrypt($encrypted_data, 'aes-256-cbc', $key, 0, $iv);
+}
+
+// Modifica della funzione updateAmazonCredentials per includere la crittografia
+function updateAmazonCredentials($access_token, $app_name, $secret_key, $encryption_key) {
+    global $conn;
+    $encrypted_access_token = encryptCredentials($access_token, $encryption_key);
+    $encrypted_app_name = encryptCredentials($app_name, $encryption_key);
+    $encrypted_secret_key = encryptCredentials($secret_key, $encryption_key);
+    $stmt = $conn->prepare("UPDATE api_credentials SET access_token = :access_token, app_name = :app_name, secret_key = :secret_key WHERE id = 1");
+    $stmt->bindParam(':access_token', $encrypted_access_token);
+    $stmt->bindParam(':app_name', $encrypted_app_name);
+    $stmt->bindParam(':secret_key', $encrypted_secret_key);
+    $stmt->execute();
+}
+
+// Nota: L'interfaccia di gestione nel backoffice e la gestione degli errori saranno implementate nei passi successivi.
+// Interfaccia di Gestione nel Backoffice per le Credenziali SP-API
+echo '<h2>Gestione Credenziali SP-API</h2>';
+echo '<form action="update_credentials.php" method="post">';
+echo 'Access Token: <input type="text" name="access_token"><br>';
+echo 'App Name: <input type="text" name="app_name"><br>';
+echo 'Secret Key: <input type="password" name="secret_key"><br>';
+echo '<input type="submit" value="Aggiorna Credenziali">';
+echo '</form>';
+
+// Gestione degli Errori
+if (isset($_GET['error'])) {
+    echo '<p style="color:red;">' . $_GET['error'] . '</p>';
+}
+
+// Nota: Il file 'update_credentials.php' dovrà essere creato separatamente e conterrà la logica per aggiornare le credenziali nel database.
+// File: update_credentials.php
+
+// Ottenere le credenziali dal form
+$access_token = $_POST['access_token'];
+$app_name = $_POST['app_name'];
+$secret_key = $_POST['secret_key'];
+
+// Chiave di crittografia (dovrebbe essere conservata in modo sicuro e non esposta)
+$encryption_key = 'YOUR_ENCRYPTION_KEY';
+
+// Aggiornare le credenziali nel database
+updateAmazonCredentials($access_token, $app_name, $secret_key, $encryption_key);
+
+// Reindirizzare l'utente alla pagina di gestione con un messaggio di successo
+header('Location: manage_credentials.php?success=1');
+# Creazione dell'Interfaccia del Backoffice
+
+# Iniziamo con la pagina di login
+from flask import Flask, render_template, request, redirect, url_for, session
+app = Flask(__name__)
+app.secret_key = 'your_secret_key'
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        email = request.form['email']
+        password = request.form['password']
+        # TODO: Verifica delle credenziali con il database
+        # Se le credenziali sono corrette, reindirizza alla dashboard
+        return redirect(url_for('dashboard'))
+    return render_template('login.html')
+
+@app.route('/dashboard')
+def dashboard():
+    # TODO: Recupera le metriche chiave dal database
+    return render_template('dashboard.html')
+
+if __name__ == '__main__':
+    app.run(debug=True)
+# Creazione dei Templates HTML
+
+# login.html
+login_template = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login - Backoffice</title>
+</head>
+<body>
+    <h2>Login</h2>
+    <form action='/login' method='post'>
+        Email: <input type='email' name='email' required><br>
+        Password: <input type='password' name='password' required><br>
+        <input type='submit' value='Login'>
+    </form>
+</body>
+</html>
+"""
+
+# dashboard.html
+dashboard_template = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard - Backoffice</title>
+</head>
+<body>
+    <h2>Dashboard</h2>
+    <!-- Qui puoi aggiungere metriche chiave, grafici e altre informazioni -->
+</body>
+</html>
+"""
+
+# Verifica delle Credenziali
+# TODO: Implementare la logica per verificare le credenziali dell'utente con il database.
+
+# Dashboard
+# TODO: Recuperare e visualizzare le metriche chiave dal database.
+
+# Estensione dell'Interfaccia
+# TODO: Estendere l'interfaccia per includere altre funzionalità.
+<?php
+// Includi il file di configurazione del database
+include('config.php');
+
+// Inizia la sessione
+session_start();
+
+// Controlla se l'utente ha già effettuato l'accesso
+if(isset($_SESSION['loggedin']) && $_SESSION['loggedin'] === true){
+    header('location: dashboard.php');
+    exit;
+}
+
+// Definisci le variabili e inizializza con valori vuoti
+$email = $password = '';
+$email_err = $password_err = '';
+
+// Elabora i dati del modulo quando il modulo viene inviato
+if($_SERVER['REQUEST_METHOD'] == 'POST'){
+
+    // Controlla se l'email è vuota
+    if(empty(trim($_POST['email']))){
+        $email_err = 'Inserisci la tua email.';
+    } else{
+        $email = trim($_POST['email']);
+    }
+
+    // Controlla se la password è vuota
+    if(empty(trim($_POST['password']))){
+        $password_err = 'Inserisci la tua password.';
+    } else{
+        $password = trim($_POST['password']);
+    }
+
+    // Valida le credenziali
+    if(empty($email_err) && empty($password_err)){
+        $sql = 'SELECT id, email, password FROM users WHERE email = ?';
+
+        if($stmt = mysqli_prepare($link, $sql)){
+            mysqli_stmt_bind_param($stmt, 's', $param_email);
+
+            $param_email = $email;
+
+            if(mysqli_stmt_execute($stmt)){
+                mysqli_stmt_store_result($stmt);
+
+                if(mysqli_stmt_num_rows($stmt) == 1){
+                    mysqli_stmt_bind_result($stmt, $id, $email, $hashed_password);
+                    if(mysqli_stmt_fetch($stmt)){
+                        if(password_verify($password, $hashed_password)){
+                            session_start();
+
+                            $_SESSION['loggedin'] = true;
+                            $_SESSION['id'] = $id;
+                            $_SESSION['email'] = $email;
+
+                            header('location: dashboard.php');
+                        } else{
+                            $password_err = 'La password inserita non è valida.';
+                        }
+                    }
+                } else{
+                    $email_err = 'Nessun account trovato con questa email.';
+                }
+            } else{
+                echo 'Oops! Qualcosa è andato storto. Riprova più tardi.';
+            }
+            mysqli_stmt_close($stmt);
+        }
+    }
+    mysqli_close($link);
+}
+?>
+Creazione dell'Interfaccia di Login
+Per creare l'interfaccia di login, useremo HTML per la struttura, CSS per lo stile e JavaScript per la funzionalità. Di seguito è presentato un esempio di come potrebbe apparire il codice per l'interfaccia di login:
+
+```html
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Amazon SP-API Integration</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="login-container">
+        <h2>Login</h2>
+        <form action="login.php" method="post">
+            <div class="input-group">
+                <label for="email">Email:</label>
+                <input type="email" id="email" name="email" required>
+            </div>
+            <div class="input-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <button type="submit">Accedi</button>
+        </form>
+    </div>
+    <script src="scripts.js"></script>
+</body>
+</html>
+```
+
+Il codice HTML di cui sopra definisce la struttura dell'interfaccia di login. L'utente inserirà la propria email e password, e al momento della presentazione, i dati verranno inviati al file `login.php` per l'elaborazione. Il file `styles.css` definirà lo stile dell'interfaccia, mentre `scripts.js` conterrà eventuali funzionalità JavaScript necessarie.
+Stili CSS per l'Interfaccia di Login
+Per rendere l'interfaccia di login esteticamente gradevole e user-friendly, possiamo definire alcuni stili CSS. Di seguito è presentato un esempio di come potrebbero apparire gli stili CSS per l'interfaccia di login:
+
+```css
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    margin: 0;
+    padding: 0;
+}
+
+.login-container {
+    width: 300px;
+    padding: 20px;
+    margin: 100px auto;
+    background-color: #fff;
+    border-radius: 5px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+h2 {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.input-group {
+    margin-bottom: 15px;
+}
+
+label {
+    display: block;
+    margin-bottom: 5px;
+}
+
+input[type="email"], input[type="password"] {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+button {
+    width: 100%;
+    padding: 10px;
+    background-color: #007BFF;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+```
+
+Questi stili CSS definiscono l'aspetto dell'interfaccia di login. Ad esempio, il contenitore di login (`login-container`) ha un'ombra leggera, bordi arrotondati e viene centrato verticalmente e orizzontalmente nella pagina. Gli input e il pulsante hanno uno stile coerente e user-friendly.
+Logica di Autenticazione
+Oltre alla creazione dell'interfaccia di login, dobbiamo anche implementare la logica di autenticazione sul lato server. Questo implica la verifica delle credenziali fornite dall'utente e la gestione delle sessioni. Di seguito è presentato un esempio di come potrebbe apparire il codice PHP per gestire l'autenticazione:
+
+```php
+<?php
+session_start();
+
+// Connessione al database
+$conn = new mysqli('localhost', 'username', 'password', 'database_name');
+
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $email = $_POST['email'];
+    $password = $_POST['password'];
+
+    // Verifica delle credenziali
+    $sql = "SELECT * FROM users WHERE email = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param('s', $email);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $user = $result->fetch_assoc();
+
+    if ($user && password_verify($password, $user['password'])) {
+        // Credenziali valide
+        $_SESSION['loggedin'] = true;
+        $_SESSION['user_id'] = $user['id'];
+        $_SESSION['email'] = $user['email'];
+        header('Location: dashboard.php');
+    } else {
+        // Credenziali non valide
+        echo 'Email o password non corretti!';
+    }
+}
+?>
+```
+
+Questo script PHP inizia una sessione e stabilisce una connessione al database. Se il metodo di richiesta è POST (cioè l'utente ha inviato il modulo di login), verifica le credenziali fornite dall'utente. Se le credenziali sono valide, l'utente viene reindirizzato al dashboard. In caso contrario, viene visualizzato un messaggio di errore.
+# Gestione degli errori
+
+# Connessione al database
+try:
+    $conn = new PDO("mysql:host=$servername;dbname=$dbname", $username, $password);
+    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+except(PDOException $e) {
+    echo "Connection failed: " . $e->getMessage();
+}
+
+# Chiamate API
+function callAmazonAPI($endpoint) {
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $endpoint);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    $response = curl_exec($ch);
+    if (curl_errno($ch)) {
+        echo 'Error:' . curl_error($ch);
+    }
+    curl_close($ch);
+    return $response;
+}
+
+# Miglioramenti dell'interfaccia utente
+# (Nota: Questa sezione richiederebbe una discussione dettagliata sul design e l'usabilità, quindi fornisco solo un esempio generico)
+echo "<style>body { font-family: Arial, sans-serif; }</style>";
+
+# Ulteriori funzionalità
+# Generazione di report
+function generateReport($products) {
+    $report = '';
+    foreach ($products as $product) {
+        $report .= $product['name'] . ' - ' . $product['price'] . '\n';
+    }
+    return $report;
+}
+# Creazione dei Templates
+
+# login.html
+login_template = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login</title>
+</head>
+<body>
+    <form action='/login' method='post'>
+        Email: <input type='email' name='email'><br>
+        Password: <input type='password' name='password'><br>
+        <input type='submit' value='Login'>
+    </form>
+</body>
+</html>
+"""
+
+# dashboard.html
+dashboard_template = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard</title>
+</head>
+<body>
+    <h1>Welcome to the Dashboard</h1>
+    <!-- Qui verranno visualizzate le metriche chiave e altre informazioni -->
+</body>
+</html>
+"""
+
+# TODO: Implementare la logica per servire questi template e gestire le richieste dell'utente
+
+# Verifica delle Credenziali
+def verify_credentials(email, password):
+    # TODO: Implementare la logica per verificare le credenziali con il database
+    pass
+
+# Dashboard
+def get_dashboard_data():
+    # TODO: Recuperare e visualizzare le metriche chiave dal database
+    pass
+
+# Estensione dell'Interfaccia
+# TODO: Implementare ulteriori funzionalità come la gestione dei prodotti, la selezione del marketplace, ecc.
+# Implementazione della logica per servire i template e gestire le richieste dell'utente
+
+from flask import Flask, render_template, request, redirect, url_for, session
+import pymysql
+
+app = Flask(__name__)
+app.secret_key = 'your_secret_key'
+
+# Connessione al database
+def db_connection():
+    conn = pymysql.connect(host='localhost', user='username', password='password', db='amazon_sp_api')
+    cur = conn.cursor()
+    return conn, cur
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        email = request.form['email']
+        password = request.form['password']
+        conn, cur = db_connection()
+        cur.execute('SELECT * FROM users WHERE email=%s AND password=%s', (email, password))
+        user = cur.fetchone()
+        conn.close()
+        if user:
+            session['loggedin'] = True
+            session['id'] = user[0]
+            session['email'] = user[1]
+            return redirect(url_for('dashboard'))
+        else:
+            return 'Email o password non corretti!'
+    return render_template('login.html')
+
+@app.route('/dashboard')
+def dashboard():
+    if 'loggedin' in session:
+        return render_template('dashboard.html')
+    return redirect(url_for('login'))
+
+if __name__ == '__main__':
+    app.run(debug=True)
+# Creazione dei template HTML
+
+# login.html
+login_template = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login</title>
+</head>
+<body>
+    <h2>Login</h2>
+    <form action='/login' method='post'>
+        Email: <input type='email' name='email' required><br>
+        Password: <input type='password' name='password' required><br>
+        <input type='submit' value='Login'>
+    </form>
+</body>
+</html>
+"""
+
+# Salviamo il template in un file
+with open('login.html', 'w') as f:
+    f.write(login_template)
+
+# dashboard.html
+dashboard_template = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard</title>
+</head>
+<body>
+    <h2>Welcome to the Dashboard</h2>
+    <!-- Qui possiamo aggiungere ulteriori elementi per visualizzare le metriche e altre informazioni -->
+</body>
+</html>
+"""
+
+# Salviamo il template in un file
+with open('dashboard.html', 'w') as f:
+    f.write(dashboard_template)
+<?php
+// connessione.php
+$conn = new mysqli('localhost', 'username', 'password', 'database_name');
+if ($conn->connect_error) {
+    die('Connection failed: ' . $conn->connect_error);
+}
+
+// login.php
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $email = $_POST['email'];
+    $password = $_POST['password'];
+    $stmt = $conn->prepare('SELECT * FROM users WHERE email = ?');
+    $stmt->bind_param('s', $email);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $user = $result->fetch_assoc();
+    if ($user && password_verify($password, $user['password'])) {
+        // Set session variables
+        $_SESSION['loggedin'] = true;
+        $_SESSION['email'] = $user['email'];
+        header('Location: dashboard.html');
+    } else {
+        echo 'Incorrect email or password!';
+    }
+}
+
+// dashboard.html (PHP section)
+if (!$_SESSION['loggedin']) {
+    header('Location: login.html');
+    exit;
+}
+// Display user-specific data...
+<?php
+// Connessione al database
+$conn = new mysqli('localhost', 'username', 'password', 'database_name');
+if ($conn->connect_error) {
+    die('Connection failed: ' . $conn->connect_error);
+}
+
+// Visualizzazione dei prodotti
+function getProducts() {
+    global $conn;
+    $sql = 'SELECT * FROM products';
+    $result = $conn->query($sql);
+    $products = [];
+    while($row = $result->fetch_assoc()) {
+        $products[] = $row;
+    }
+    return $products;
+}
+
+// Gestione delle credenziali SP-API
+function getAmazonCredentials() {
+    global $conn;
+    $sql = 'SELECT * FROM amazon_credentials WHERE user_id = {$_SESSION['user_id']}';
+    $result = $conn->query($sql);
+    if ($result->num_rows > 0) {
+        return $result->fetch_assoc();
+    } else {
+        return null;
+    }
+}
+
+function updateAmazonCredentials($accessKey, $secretKey) {
+    global $conn;
+    $sql = "UPDATE amazon_credentials SET access_key = '{$accessKey}', secret_key = '{$secretKey}' WHERE user_id = {$_SESSION['user_id']}";
+    if ($conn->query($sql) === TRUE) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+// ... Altre funzioni per gestire le funzionalità del backoffice ...
+
+?>
+<?php
+// Connessione al database
+$conn = new mysqli('localhost', 'username', 'password', 'amazon_sp_api_db');
+if ($conn->connect_error) {
+    die('Connection failed: ' . $conn->connect_error);
+}
+
+// Funzione per visualizzare i prodotti
+function getProducts() {
+    global $conn;
+    $sql = 'SELECT * FROM products';
+    $result = $conn->query($sql);
+    $products = [];
+    while($row = $result->fetch_assoc()) {
+        $products[] = $row;
+    }
+    return $products;
+}
+
+// Funzione per aggiornare le credenziali SP-API
+function updateAmazonCredentials($accessKey, $secretKey) {
+    global $conn;
+    $sql = "UPDATE amazon_credentials SET access_key = '$accessKey', secret_key = '$secretKey' WHERE user_id = 1"; // Assumendo che l'ID dell'utente sia 1
+    if ($conn->query($sql) === TRUE) {
+        return 'Credenziali aggiornate con successo';
+    } else {
+        return 'Errore: ' . $conn->error;
+    }
+}
+
+// Funzione per creare un nuovo prodotto
+function createProduct($asin, $ean, $productName, $productDescription) {
+    global $conn;
+    $sql = "INSERT INTO products (asin, ean, product_name, product_description) VALUES ('$asin', '$ean', '$productName', '$productDescription')";
+    if ($conn->query($sql) === TRUE) {
+        return 'Prodotto creato con successo';
+    } else {
+        return 'Errore: ' . $conn->error;
+    }
+}
+
+// Funzione per aggiornare un prodotto esistente
+function updateProduct($productId, $asin, $ean, $productName, $productDescription) {
+    global $conn;
+    $sql = "UPDATE products SET asin = '$asin', ean = '$ean', product_name = '$productName', product_description = '$productDescription' WHERE id = $productId";
+    if ($conn->query($sql) === TRUE) {
+        return 'Prodotto aggiornato con successo';
+    } else {
+        return 'Errore: ' . $conn->error;
+    }
+}
+
+// Funzione per eliminare un prodotto
+function deleteProduct($productId) {
+    global $conn;
+    $sql = "DELETE FROM products WHERE id = $productId";
+    if ($conn->query($sql) === TRUE) {
+        return 'Prodotto eliminato con successo';
+    } else {
+        return 'Errore: ' . $conn->error;
+    }
+}
+
+// Funzione per ottenere le credenziali SP-API
+function getAmazonCredentials() {
+    global $conn;
+    $sql = 'SELECT * FROM amazon_credentials WHERE user_id = 1'; // Assumendo che l'ID dell'utente sia 1
+    $result = $conn->query($sql);
+    if ($result->num_rows > 0) {
+        return $result->fetch_assoc();
+    } else {
+        return null;
+    }
+}
+
+?>
+<?php
+// Connessione al database
+$conn = new mysqli('localhost', 'username', 'password', 'database_name');
+if ($conn->connect_error) {
+    die('Errore di connessione: ' . $conn->connect_error);
+}
+
+// Query per ottenere tutti i prodotti
+$sql = 'SELECT * FROM products';
+$result = $conn->query($sql);
+
+?>
+<!DOCTYPE html>
+<html lang='it'>
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>Backoffice</title>
+    <!-- Inclusione di Bootstrap CSS -->
+    <link href='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css' rel='stylesheet'>
+</head>
+<body>
+<div class='container mt-5'>
+    <h1 class='mb-4'>Prodotti</h1>
+    <table class='table table-bordered'>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nome</th>
+                <th>Descrizione</th>
+                <th>Prezzo</th>
+                <th>Azioni</th>
+            </tr>
+        </thead>
+        <tbody>
+        <?php
+        if ($result->num_rows > 0) {
+            while($row = $result->fetch_assoc()) {
+                echo '<tr>';
+                echo '<td>' . $row['id'] . '</td>';
+                echo '<td>' . $row['name'] . '</td>';
+                echo '<td>' . $row['description'] . '</td>';
+                echo '<td>' . $row['price'] . '€</td>';
+                echo '<td>';
+                echo '<a href="edit.php?id=' . $row['id'] . '" class="btn btn-primary btn-sm">Modifica</a> ';
+                echo '<a href="delete.php?id=' . $row['id'] . '" class="btn btn-danger btn-sm">Elimina</a>';
+                echo '</td>';
+                echo '</tr>';
+            }
+        } else {
+            echo '<tr><td colspan="5">Nessun prodotto trovato</td></tr>';
+        }
+        ?>
+        </tbody>
+    </table>
+</div>
+<!-- Inclusione di Bootstrap JS e Popper.js -->
+<script src='https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js'></script>
+<script src='https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js'></script>
+<script src='https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js'></script>
+</body>
+</html>
+<?php
+// Connessione al database
+$conn = new mysqli($servername, $username, $password, $dbname);
+
+// Verifica della connessione
+if ($conn->connect_error) {
+    die("Connection failed: " . $conn->connect_error);
+}
+
+// Query per ottenere tutti i prodotti
+$sql = "SELECT * FROM products";
+$result = $conn->query($sql);
+
+echo '<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">';
+echo '<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>';
+
+echo '<table class="table table-striped">';
+echo '<thead><tr><th>ASIN</th><th>Nome Prodotto</th><th>Prezzo Attuale</th><th>Variazione Prezzo</th></tr></thead>';
+echo '<tbody>';
+
+while($row = $result->fetch_assoc()) {
+    echo '<tr>';
+    echo '<td>' . $row['asin'] . '</td>';
+    echo '<td>' . $row['product_name'] . '</td>';
+    echo '<td>' . $row['current_price'] . '</td>';
+    echo '<td><canvas id="chart-' . $row['asin'] . '" width="100" height="30"></canvas></td>';
+    echo '</tr>';
+}
+
+echo '</tbody>';
+echo '</table>';
+
+// Chiudi la connessione al database
+$conn->close();
+?>
+<?php
+// Connessione al database
+$conn = new mysqli($servername, $username, $password, $dbname);
+
+// Verifica della connessione
+if ($conn->connect_error) {
+    die("Connection failed: " . $conn->connect_error);
+}
+
+// Query per ottenere tutti i prodotti
+$sql = "SELECT * FROM products";
+$products = $conn->query($sql);
+
+echo '<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">';
+echo '<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>';
+
+echo '<select id="timeframe">
+      <option value="7">Ultima settimana</option>
+      <option value="30">Ultimo mese</option>
+      <option value="180">Ultimi 6 mesi</option>
+      </select>';
+
+echo '<table class="table table-striped">';
+echo '<thead><tr><th>ASIN</th><th>Nome Prodotto</th><th>Prezzo Attuale</th><th>Variazione Prezzo</th></tr></thead>';
+echo '<tbody>';
+
+while($row = $products->fetch_assoc()) {
+    $asin = $row['asin'];
+
+    // Query per ottenere la storia dei prezzi per il prodotto corrente
+    $priceHistorySql = "SELECT price, date FROM price_history WHERE asin = '$asin' ORDER BY date DESC";
+    $priceHistory = $conn->query($priceHistorySql);
+
+    $prices = [];
+    $dates = [];
+    while($historyRow = $priceHistory->fetch_assoc()) {
+        $prices[] = $historyRow['price'];
+        $dates[] = $historyRow['date'];
+    }
+
+    echo '<tr>';
+    echo '<td>' . $row['asin'] . '</td>';
+    echo '<td>' . $row['product_name'] . '</td>';
+    echo '<td>' . $row['current_price'] . '</td>';
+    echo '<td><canvas id="chart-' . $row['asin'] . '" width="100" height="30"></canvas></td>';
+    echo '</tr>';
+}
+
+echo '</tbody>';
+echo '</table>';
+
+// Chiudi la connessione al database
+$conn->close();
+?>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let timeframe = document.getElementById('timeframe');
+    timeframe.addEventListener('change', function() {
+        // Aggiorna i grafici in base alla selezione dell'arco temporale
+        updateCharts();
+    });
+
+    function updateCharts() {
+        let days = parseInt(timeframe.value);
+        let now = new Date();
+        let startDate = new Date(now - days * 24 * 60 * 60 * 1000); // Data di inizio in base alla selezione
+
+        // Per ogni prodotto, genera un grafico
+        <?php foreach ($products as $product) { ?>
+            let prices = <?php echo json_encode($prices[$product['asin']]); ?>;
+            let dates = <?php echo json_encode($dates[$product['asin']]); ?>;
+
+            // Filtra i dati in base alla selezione dell'arco temporale
+            let filteredPrices = [];
+            let filteredDates = [];
+            for (let i = 0; i < dates.length; i++) {
+                if (new Date(dates[i]) >= startDate) {
+                    filteredPrices.push(prices[i]);
+                    filteredDates.push(dates[i]);
+                }
+            }
+
+            let ctx = document.getElementById('chart-' + <?php echo $product['asin']; ?>).getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: filteredDates,
+                    datasets: [{
+                        data: filteredPrices,
+                        borderColor: 'blue',
+                        fill: false
+                    }]
+                },
+                options: {
+                    legend: {
+                        display: false
+                    },
+                    scales: {
+                        xAxes: [{
+                            display: false
+                        }],
+                        yAxes: [{
+                            ticks: {
+                                beginAtZero: true
+                            }
+                        }]
+                    }
+                }
+            });
+        <?php } ?>
+    }
+
+    // Genera i grafici al caricamento della pagina
+    updateCharts();
+});
+</script>
+// registrazione.php
+
+<?php
+include("config.php");  // Include your database connection script
+
+if(isset($_POST['register'])){
+
+$username = $_POST['username'];
+$password = md5($_POST['password']);  // Encrypt the password using md5 for security
+$email = $_POST['email'];
+
+$query = "INSERT INTO users (username, password, email) VALUES ('$username', '$password', '$email')";
+$result = mysqli_query($conn, $query);
+
+if($result){
+    echo "Registration successful!";
+} else {
+    echo "Error: " . mysqli_error($conn);
+}
+}
+?>
+
+<form action="registrazione.php" method="post">
+    Username: <input type="text" name="username" required><br>
+    Password: <input type="password" name="password" required><br>
+    Email: <input type="email" name="email" required><br>
+    <input type="submit" name="register" value="Register">
+</form>
+// login.php
+
+include('config.php');
+
+if(isset($_POST['login'])) {
+    $email = $_POST['email'];
+    $password = md5($_POST['password']);
+
+    $query = "SELECT * FROM users WHERE email = '$email' AND password = '$password'";
+    $result = mysqli_query($conn, $query);
+
+    if(mysqli_num_rows($result) == 1) {
+        $_SESSION['email'] = $email;
+        header('Location: dashboard.php');
+    } else {
+        echo 'Email o password non validi.';
+    }
+}
+
+?>
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+
+<div class="container">
+    <h2>Login</h2>
+    <form action="" method="post">
+        <div class="form-group">
+            <label for="email">Email:</label>
+            <input type="email" class="form-control" id="email" placeholder="Inserisci email" name="email" required>
+        </div>
+        <div class="form-group">
+            <label for="pwd">Password:</label>
+            <input type="password" class="form-control" id="pwd" placeholder="Inserisci password" name="password" required>
+        </div>
+        <button type="submit" name="login" class="btn btn-primary">Login</button>
+    </form>
+</div>
+
+</body>
+</html>
+// dashboard.php
+
+session_start();
+
+if(!isset($_SESSION['email'])) {
+    header('Location: login.php');
+}
+
+include('config.php');
+
+// Recupera le metriche chiave dal database
+$query = "SELECT COUNT(*) as total_products FROM products";
+$result = mysqli_query($conn, $query);
+$row = mysqli_fetch_assoc($result);
+$total_products = $row['total_products'];
+
+// TODO: Aggiungi altre metriche come desiderato
+
+?>
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<div class="container">
+    <h2>Dashboard</h2>
+    <p>Numero totale di prodotti: <?php echo $total_products; ?></p>
+
+    <!-- TODO: Aggiungi grafici di tendenza dei prezzi o altre visualizzazioni dei dati -->
+
+</div>
+
+</body>
+</html>
+// products.php
+
+include('config.php');
+
+// Recupera tutti i prodotti dal database
+$query = "SELECT * FROM products";
+$result = mysqli_query($conn, $query);
+
+?>
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Gestione dei Prodotti</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<div class="container">
+    <h2>Gestione dei Prodotti</h2>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nome Prodotto</th>
+                <th>Prezzo</th>
+                <th>Data Ultimo Aggiornamento</th>
+                <th>Azioni</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php while($row = mysqli_fetch_assoc($result)) { ?>
+                <tr>
+                    <td><?php echo $row['id']; ?></td>
+                    <td><?php echo $row['product_name']; ?></td>
+                    <td><?php echo $row['price']; ?></td>
+                    <td><?php echo $row['last_updated']; ?></td>
+                    <td>
+                        <!-- TODO: Aggiungi opzioni per visualizzare, modificare o eliminare -->
+                    </td>
+                </tr>
+            <?php } ?>
+        </tbody>
+    </table>
+</div>
+
+</body>
+</html>
+// marketplace.php
+
+include('config.php');
+
+// Recupera le informazioni sul marketplace selezionato
+// Nota: per semplicità, stiamo assumendo un solo marketplace in questo esempio.
+$query = "SELECT * FROM marketplace LIMIT 1";
+$result = mysqli_query($conn, $query);
+$marketplace = mysqli_fetch_assoc($result);
+
+?>
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Gestione del Marketplace</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+
+<div class="container">
+    <h2>Gestione del Marketplace</h2>
+    <form action="" method="post">
+        <div class="form-group">
+            <label for="marketplace_name">Nome Marketplace:</label>
+            <input type="text" class="form-control" id="marketplace_name" name="marketplace_name" value="<?php echo $marketplace['name']; ?>" required>
+        </div>
+        <div class="form-group">
+            <label for="marketplace_url">URL Marketplace:</label>
+            <input type="url" class="form-control" id="marketplace_url" name="marketplace_url" value="<?php echo $marketplace['url']; ?>" required>
+        </div>
+        <button type="submit" name="update_marketplace" class="btn btn-primary">Aggiorna</button>
+    </form>
+</div>
+
+</body>
+</html>
+// spapi_credentials.php
+
+include('config.php');
+
+if(isset($_POST['update_credentials'])) {
+    $access_key = $_POST['access_key'];
+    $secret_key = $_POST['secret_key'];
+
+    // Aggiorna le credenziali nel database
+    $query = "UPDATE spapi_credentials SET access_key = '$access_key', secret_key = '$secret_key' WHERE id = 1";
+    mysqli_query($conn, $query);
+}
+
+// Recupera le credenziali correnti dal database
+$query = "SELECT * FROM spapi_credentials LIMIT 1";
+$result = mysqli_query($conn, $query);
+$credentials = mysqli_fetch_assoc($result);
+
+?>
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Gestione delle Credenziali SP-API</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+
+<div class="container">
+    <h2>Gestione delle Credenziali SP-API</h2>
+    <form action="" method="post">
+        <div class="form-group">
+            <label for="access_key">Access Key:</label>
+            <input type="text" class="form-control" id="access_key" name="access_key" value="<?php echo $credentials['access_key']; ?>" required>
+        </div>
+        <div class="form-group">
+            <label for="secret_key">Secret Key:</label>
+            <input type="password" class="form-control" id="secret_key" name="secret_key" value="<?php echo $credentials['secret_key']; ?>" required>
+        </div>
+        <button type="submit" name="update_credentials" class="btn btn-primary">Aggiorna</button>
+    </form>
+</div>
+
+</body>
+</html>
+// user_settings.php
+
+session_start();
+
+if(!isset($_SESSION['email'])) {
+    header('Location: login.php');
+}
+
+include('config.php');
+
+if(isset($_POST['update_settings'])) {
+    $new_email = $_POST['email'];
+    $new_password = md5($_POST['password']);
+
+    // Aggiorna le informazioni dell'utente nel database
+    $query = "UPDATE users SET email = '$new_email', password = '$new_password' WHERE email = '{$_SESSION['email']}'";
+    mysqli_query($conn, $query);
+
+    $_SESSION['email'] = $new_email;
+}
+
+// Recupera le informazioni correnti dell'utente dal database
+$query = "SELECT * FROM users WHERE email = '{$_SESSION['email']}'";
+$result = mysqli_query($conn, $query);
+$user = mysqli_fetch_assoc($result);
+
+?>
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Impostazioni e Profilo Utente</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+
+<div class="container">
+    <h2>Impostazioni e Profilo Utente</h2>
+    <form action="" method="post">
+        <div class="form-group">
+            <label for="email">Email:</label>
+            <input type="email" class="form-control" id="email" name="email" value="<?php echo $user['email']; ?>" required>
+        </div>
+        <div class="form-group">
+            <label for="password">Nuova Password:</label>
+            <input type="password" class="form-control" id="password" name="password" required>
+        </div>
+        <button type="submit" name="update_settings" class="btn btn-primary">Aggiorna</button>
+    </form>
+</div>
+
+</body>
+</html>
+<label for="email">Email:</label>
+            <input type="email" class="form-control" id="email" name="email" value="<?php echo $user['email']; ?>" required>
+        </div>
+        <div class="form-group">
+            <label for="password">Nuova Password:</label>
+            <input type="password" class="form-control" id="password" name="password" placeholder="Inserisci una nuova password" required>
+        </div>
+        <button type="submit" name="update_settings" class="btn btn-primary">Aggiorna</button>
+    </form>
+
+    <!-- TODO: Aggiungi opzioni per la sicurezza, come l'attivazione della verifica in due passaggi -->
+
+</div>
+
+</body>
+</html>
+<?php
+// Log e Report
+
+// Connessione al database
+$conn = new mysqli($servername, $username, $password, $dbname);
+
+// Verifica connessione
+if ($conn->connect_error) {
+    die('Connessione fallita: ' . $conn->connect_error);
+}
+
+// Recupera i log delle attività
+$sql = 'SELECT * FROM activity_logs ORDER BY timestamp DESC';
+$result = $conn->query($sql);
+
+echo '<h2>Log delle Attività</h2>';
+echo '<table border="1">';
+echo '<tr><th>Timestamp</th><th>Azione</th><th>Dettagli</th></tr>';
+while($row = $result->fetch_assoc()) {
+    echo '<tr><td>' . $row['timestamp'] . '</td><td>' . $row['action'] . '</td><td>' . $row['details'] . '</td></tr>';
+}
+echo '</table>';
+
+// Chiudi connessione
+$conn->close();
+?>
+
+<!-- Opzione per generare report -->
+<h2>Genera Report</h2>
+<form action='generate_report.php' method='post'>
+    <label for='start_date'>Data inizio:</label>
+    <input type='date' id='start_date' name='start_date'>
+    <label for='end_date'>Data fine:</label>
+    <input type='date' id='end_date' name='end_date'>
+    <input type='submit' value='Genera Report'>
+</form>
+// Log e Report
+
+// Connessione al database
+$conn = new mysqli($servername, $username, $password, $dbname);
+
+// Verifica della connessione
+if ($conn->connect_error) {
+    die('Connessione fallita: ' . $conn->connect_error);
+}
+
+// Recupera i log delle attività dal database
+$sql = 'SELECT * FROM activity_logs ORDER BY timestamp DESC';
+$result = $conn->query($sql);
+
+echo '<h2>Log delle Attività</h2>';
+echo '<table border="1">';
+echo '<tr><th>Timestamp</th><th>Azione</th><th>Dettagli</th></tr>';
+while($row = $result->fetch_assoc()) {
+    echo '<tr><td>' . $row['timestamp'] . '</td><td>' . $row['action'] . '</td><td>' . $row['details'] . '</td></tr>';
+}
+echo '</table>';
+
+// Modulo per generare report
+echo '<h2>Genera Report</h2>';
+echo '<form action="generate_report.php" method="post">';
+echo 'Data di inizio: <input type="date" name="start_date"><br>';
+echo 'Data di fine: <input type="date" name="end_date"><br>';
+echo '<input type="submit" value="Genera Report">';
+echo '</form>';
+
+// Chiusura della connessione
+$conn->close();
+<?php
+// generate_report.php
+
+// Connessione al database
+$conn = new mysqli($servername, $username, $password, $dbname);
+
+// Verifica connessione
+if ($conn->connect_error) {
+    die("Connection failed: " . $conn->connect_error);
+}
+
+// Recupera le date dal modulo
+$start_date = $_POST['start_date'];
+$end_date = $_POST['end_date'];
+
+// Query per ottenere le attività tra le date fornite
+$sql = "SELECT * FROM activity_log WHERE timestamp BETWEEN '$start_date' AND '$end_date'";
+$result = $conn->query($sql);
+
+// Preparazione del report
+echo "<h2>Report dal $start_date al $end_date</h2>";
+echo "<table border='1'>";
+echo "<tr><th>Timestamp</th><th>Azione</th><th>Dettagli</th></tr>";
+
+while($row = $result->fetch_assoc()) {
+    echo "<tr><td>" . $row['timestamp'] . "</td><td>" . $row['action'] . "</td><td>" . $row['details'] . "</td></tr>";
+}
+
+echo "</table>";
+
+$conn->close();
+?>
+// Integrazione del modulo di generazione report nell'interfaccia del backoffice
+
+echo "<h2>Genera Report delle Attività</h2>";
+echo "<form action='generate_report.php' method='post'>";
+echo "<label for='start_date'>Data inizio:</label>";
+echo "<input type='date' id='start_date' name='start_date' required><br><br>";
+echo "<label for='end_date'>Data fine:</label>";
+echo "<input type='date' id='end_date' name='end_date' required><br><br>";
+echo "<input type='submit' value='Genera Report'>";
+echo "</form>";
+
+// Questo modulo invierà le date selezionate a 'generate_report.php' che eseguirà il codice per generare il report.
+// Aggiungere funzionalità per visualizzare il report direttamente nell'interfaccia
+if (isset($_POST['generate_report'])) {
+    $startDate = $_POST['start_date'];
+    $endDate = $_POST['end_date'];
+    $reportData = generateReport($startDate, $endDate);
+    echo '<h3>Report dal ' . $startDate . ' al ' . $endDate . '</h3>';
+    echo '<table border="1">';
+    echo '<tr><th>Data</th><th>Attività</th></tr>';
+    foreach ($reportData as $row) {
+        echo '<tr><td>' . $row['date'] . '</td><td>' . $row['activity'] . '</td></tr>';
+    }
+    echo '</table>';
+}
+
+// Aggiungere un pulsante per scaricare il report in formato CSV
+if (isset($_POST['download_csv'])) {
+    header('Content-Type: text/csv');
+    header('Content-Disposition: attachment; filename="report.csv"');
+    $output = fopen('php://output', 'w');
+    fputcsv($output, array('Data', 'Attività'));
+    foreach ($reportData as $row) {
+        fputcsv($output, $row);
+    }
+    fclose($output);
+    exit;
+}
+
+// TODO: Aggiungere la funzionalità per scaricare il report in formato PDF utilizzando una libreria come FPDF o TCPDF.
+// 1. Gestione degli Errori nelle chiamate SP-API
+
+function callSPAPI($endpoint, $data) {
+    $ch = curl_init($endpoint);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    // Controllo degli errori
+    if ($httpCode >= 400) {
+        // Log dell'errore
+        error_log('Errore nella chiamata SP-API: ' . $response);
+
+        // Gestione degli errori specifici
+        switch ($httpCode) {
+            case 401:
+                throw new Exception('Autenticazione fallita.');
+                break;
+            case 403:
+                throw new Exception('Accesso negato.');
+                break;
+            case 429:
+                throw new Exception('Troppe richieste. Riprova più tardi.');
+                break;
+            default:
+                throw new Exception('Si è verificato un errore nella chiamata SP-API.');
+        }
+    }
+
+    return json_decode($response, true);
+}
+// 2. Rate Limiting e Gestione delle Retry
+
+$retryCount = 0;
+while ($retryCount < 3) {
+    try {
+        $response = callSPAPI($endpoint, $data);
+        break; // Se la chiamata ha successo, esce dal ciclo
+    } catch (Exception $e) {
+        if ($e->getMessage() === 'Troppe richieste. Riprova più tardi.') {
+            sleep(10); // Aspetta 10 secondi prima di riprovare
+            $retryCount++;
+        } else {
+            throw $e; // Rilancia l'eccezione se non è un errore di rate limiting
+        }
+    }
+}
+// 3. Gestione delle Risposte Paginate
+
+$allResults = [];
+do {
+    $response = callSPAPI($endpoint, $data);
+    $allResults = array_merge($allResults, $response['results']);
+
+    // Se esiste un token di paginazione, utilizzalo per la prossima chiamata
+    if (isset($response['paginationToken'])) {
+        $data['paginationToken'] = $response['paginationToken'];
+    } else {
+        break; // Esce dal ciclo se non ci sono altre pagine
+    }
+} while (true);
+// Integrazione dei miglioramenti delle chiamate SP-API nel backoffice
+
+// Supponendo che abbiamo una funzione nel backoffice che effettua chiamate alle SP-API
+function fetchFromSPAPI($endpoint, $parameters) {
+    // Utilizzare la funzione migliorata per effettuare chiamate alle SP-API
+    $response = makeSPAPICall($endpoint, $parameters);
+
+    // Gestire la risposta e visualizzarla nell'interfaccia
+    if ($response['success']) {
+        // Visualizza i dati nella tabella o in altri elementi dell'interfaccia
+        displayData($response['data']);
+    } else {
+        // Visualizza un messaggio di errore all'utente
+        displayError($response['message']);
+    }
+}
+
+// Questa funzione può essere chiamata quando l'utente fa clic su un pulsante nell'interfaccia per, ad esempio, ottenere la lista dei prodotti
+if (isset($_POST['fetchProducts'])) {
+    fetchFromSPAPI('/products', array('MarketplaceId' => 'IT'));
+}
+<?php
+// Funzione migliorata per effettuare chiamate SP-API
+function makeSPAPICall($endpoint, $params) {
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $endpoint . '?' . http_build_query($params));
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    // Gestione degli errori
+    if ($httpCode >= 400) {
+        switch ($httpCode) {
+            case 401:
+                return ['error' => 'Errore di autenticazione. Controlla le tue credenziali SP-API.'];
+            case 429:
+                return ['error' => 'Hai superato il limite di chiamate. Riprova tra qualche minuto.'];
+            default:
+                return ['error' => 'Si è verificato un errore nella chiamata SP-API.'];
+        }
+    }
+
+    return json_decode($response, true);
+}
+
+// Esempio di utilizzo
+$products = makeSPAPICall('https://spapi.amazon.com/products', ['marketplace' => 'IT']);
+if (isset($products['error'])) {
+    echo $products['error'];
+} else {
+    // Mostra i prodotti o esegui altre operazioni
+}
+<?php
+// Includi il file delle funzioni
+include 'functions.php';
+
+// Esempio di come utilizzare la funzione makeSPAPICall
+$endpoint = 'path_to_SP_API_endpoint';  // Sostituisci con l'endpoint appropriato
+$params = array();  // Aggiungi eventuali parametri necessari per la chiamata API
+
+$response = makeSPAPICall($endpoint, $params);
+
+if ($response['error']) {
+    echo 'Errore: ' . $response['message'];
+} else {
+    // Esegui operazioni con la risposta, ad esempio mostrare i prodotti
+    $products = $response['data'];
+    foreach ($products as $product) {
+        echo $product['name'] . '<br>';
+    }
+}
+?>
+<?php
+// Connessione al database
+$conn = new mysqli('host', 'username', 'password', 'database_name');
+
+// Verifica connessione
+if ($conn->connect_error) {
+    die('Connection failed: ' . $conn->connect_error);
+}
+
+// Recupera le date dal modulo
+$start_date = $_POST['start_date'];
+$end_date = $_POST['end_date'];
+
+// Query per ottenere tutte le attività tra le date fornite
+$sql = "SELECT * FROM activity_log WHERE date BETWEEN '$start_date' AND '$end_date'";
+$result = $conn->query($sql);
+
+// Inizializza il report
+$report = '';
+
+if ($result->num_rows > 0) {
+    // Output dei dati di ogni riga
+    while($row = $result->fetch_assoc()) {
+        $report .= 'Date: ' . $row['date'] . ' - Activity: ' . $row['activity'] . "\n";
+    }
+} else {
+    $report = 'No activity found for the selected dates.';
+}
+
+// Chiudi connessione
+$conn->close();
+
+// Visualizza il report
+echo nl2br($report);
+
+?>
+<?php
+include 'functions.php';
+
+// Definisci l'endpoint e i parametri per la tua chiamata SP-API
+$endpoint = 'https://sellingpartnerapi-eu.amazon.com/products/pricing/v0/price';
+$params = [
+    'MarketplaceId' => 'A1PA6795UKMFR9', // ID del marketplace di Amazon.de come esempio
+    'ASIN' => 'B07H8ZCSL9' // ASIN di esempio
+];
+
+// Effettua la chiamata SP-API
+$response = makeSPAPICall($endpoint, $params);
+
+// Controlla la risposta
+if (isset($response['error'])) {
+    echo 'Errore: ' . $response['error'];
+} else {
+    // Visualizza i nomi dei prodotti come esempio
+    foreach ($response['products'] as $product) {
+        echo $product['name'] . '<br>';
+    }
+}
+?>
+// Integrazione del modulo di generazione report nell'interfaccia del backoffice
+
+// Supponendo che ci sia una pagina 'report.html' per la generazione dei report
+echo "<h2>Genera Report delle Attività</h2>";
+echo "<form action='generate_report.php' method='post'>";
+echo "<label for='start_date'>Data di inizio:</label>";
+echo "<input type='date' id='start_date' name='start_date'><br><br>";
+echo "<label for='end_date'>Data di fine:</label>";
+echo "<input type='date' id='end_date' name='end_date'><br><br>";
+echo "<input type='submit' value='Genera Report'>";
+echo "</form>";
+Connessione al Database utilizzando mysqli in PHP
+Iniziamo con la creazione di una connessione al database utilizzando mysqli.
+
+Doubleclick or Enter to Edit
+
+
+
+
+
+
+
+Python
+<?php
+// Parametri di connessione
+$host = 'localhost';
+$db   = 'nome_del_database';
+$user = 'username';
+$pass = 'password';
+$charset = 'utf8mb4';
+​
+// Creazione della connessione
+$conn = new mysqli($host, $user, $pass, $db);
+​
+// Controllo della connessione
+if ($conn->connect_error) {
+    die('Errore di connessione: ' . $conn->connect_error);
+}
+​
+// ... altre operazioni con il database ...
+​
+// Chiusura della connessione
+$conn->close();
+?>
+
+
+[ ]
+
+Cell  
+
+Output  
+
+
+
+
+
+
+Markdown
+Autenticazione degli Utenti
+Per l'autenticazione degli utenti, utilizzeremo una combinazione di username (email) e password. Ecco come potresti implementare una funzione di login utilizzando mysqli.
+
+
+
+
+
+
+
+
+Python
+<?php
+// Includi il file di connessione al database
+include 'connessione.php';
+​
+// Recupera le credenziali dall'input dell'utente
+$email = $_POST['email'];
+$password = $_POST['password'];
+​
+// Prepara la query SQL
+$stmt = $conn->prepare('SELECT * FROM users WHERE email = ?');
+$stmt->bind_param('s', $email);
+​
+// Esegui la query
+$stmt->execute();
+$result = $stmt->get_result();
+​
+// Verifica le credenziali
+if ($row = $result->fetch_assoc()) {
+    if (password_verify($password, $row['password'])) {
+        // Password corretta, inizia una nuova sessione
+        session_start();
+        $_SESSION['loggedin'] = true;
+        $_SESSION['email'] = $email;
+        header('Location: dashboard.php');
+    } else {
+        // Password errata
+        echo 'Password errata!';
+    }
+} else {
+    // Email non trovata
+    echo 'Email non trovata!';
+}
+​
+// Chiudi la connessione e lo statement
+$stmt->close();
+$conn->close();
+?>
+
+
+[ ]
+
+Cell  
+
+Output  
+
+
+
+
+
+
+Markdown
+Misure di Sicurezza: Preparazione delle Query SQL
+Una delle principali preoccupazioni quando si lavora con i database è la sicurezza, in particolare la protezione contro gli attacchi di iniezione SQL. Utilizzando mysqli e le query preparate, possiamo proteggere il nostro codice da tali attacchi. Ecco come potresti implementare una query preparata per inserire dati nel database.
+
+
+
+
+
+
+
+
+Python
+<?php
+// Includi il file di connessione al database
+include 'connessione.php';
+​
+// Dati da inserire (ad esempio, da un form)
+$nome = 'Mario';
+$cognome = 'Rossi';
+$email = 'mario.rossi@example.com';
+​
+// Prepara la query SQL
+$stmt = $conn->prepare('INSERT INTO users (nome, cognome, email) VALUES (?, ?, ?)');
+$stmt->bind_param('sss', $nome, $cognome, $email);
+​
+// Esegui la query
+if ($stmt->execute()) {
+    echo 'Dati inseriti con successo!';
+} else {
+    echo 'Errore: ' . $stmt->error;
+}
+​
+// Chiudi la connessione e lo statement
+$stmt->close();
+$conn->close();
+?>
+Connessione al Database utilizzando mysqli in PHP
+Iniziamo con la creazione di una connessione al database utilizzando mysqli.
